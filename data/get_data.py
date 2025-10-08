@@ -2,9 +2,11 @@ import yfinance as yf
 import pandas as pd
 import re
 
-def get_actions_data(data_inicio, data_fim, tickers:tuple=('PETR4.SA','ELET3.SA', 'EGIE3.SA','BRFS3.SA', "^BVSP")):
+def get_actions_data(data_inicio, data_fim, tickers:list=["PETR4.SA", "ELET3.SA", "EGIE3.SA", "CPFE3.SA", "CMIG4.SA", "ENEV3.SA",
+    "JBSS3.SA", "BRFS3.SA", "MRFG3.SA", "BEEF3.SA", "SMTO3.SA", "ABEV3.SA",
+    "CCRO3.SA", "ECOR3.SA", "SBSP3.SA", "CSMG3.SA", "WEGE3.SA", "^BVSP"]):
     """
-    Baixa os dados históricos do índice Ibovespa e retorna um DataFrame.
+    Baixa os dados históricos  e retorna um DataFrame.
 
     Args:
         data_inicio (str): Data de início no formato 'YYYY-MM-DD'.
@@ -33,7 +35,7 @@ def get_actions_data(data_inicio, data_fim, tickers:tuple=('PETR4.SA','ELET3.SA'
             #df_ibov.iloc
             print("\nDados baixados com sucesso!")
             
-            nome_arquivo = 'data_BVSP.csv' if ticker == "^BVSP" else f'data_{re.sub(r"\.SA","",ticker)}.csv'
+            nome_arquivo = 'data20To24_BVSP.csv' if ticker == "^BVSP" else f'data20To24_{re.sub(r"\.SA","",ticker)}.csv'
             df.to_csv(nome_arquivo)
         
         except Exception as e:
