@@ -1,0 +1,33 @@
+# Ambientes Virtuais (Virtual Environments)
+# Ignora o diretório venv e outros nomes comuns
+venv/
+.venv/
+env/
+.env/
+# Arquivos de ambiente
+.env
+
+# Dependências
+# Ignora diretórios de pacotes baixados (geralmente gerado pelo pip/pipenv/poetry)
+__pypackages__/
+
+# Caches e arquivos temporários
+# Ignora arquivos de cache do Python
+__pycache__/
+*.pyc
+*$py.class
+
+# Arquivos de dados de testes/cobertura
+.pytest_cache/
+.coverage
+
+# Logs e Dados
+*.log
+*.sqlite3
+
+# Editores de Código Comuns
+# VS Code
+.vscode/
+
+# IDEs Python (Ex: PyCharm)
+.idea/
