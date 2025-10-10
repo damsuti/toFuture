@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+#Serviço postgresql
+  postgres:
+    image: postgres:latest
+    container_name: to_future_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: user_invest #Usuário DB
+      POSTGRES_PASSWORD: senha_forte
+      POSTGRES_DB: databae_economy
+    ports: 
+      - "5432:5432"  # Porta local:Porta do container
+    volumes:
+# Persistência de dados: Mantenha os dados salvos mesmo se o contêiner parar
+      - postgres_data:/var/lib/postgresql/data/
+volumes:
+  postgres_data:
