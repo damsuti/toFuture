@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_USER: user_invest #Usuário DB
       POSTGRES_PASSWORD: senha_forte
-      POSTGRES_DB: databae_economy
+      POSTGRES_DB: database_economy
     ports: 
       - "5432:5432"  # Porta local:Porta do container
     volumes:
