@@ -180,12 +180,42 @@ if __name__ == "__main__":
     # Defina o período de tempo para a coleta
     data_inicio = '2020-01-01'
     data_fim = '2024-12-31'
+    tickers=   ["QUAL3.SA", "DASA3.SA", "HAPV3.SA", "FLRY3.SA", "ODPV3.SA", "RDOR3.SA",
+    "MATD3.SA", "GNDI3.SA", "PFRM3.SA", "RADL3.SA", "HYPE3.SA", "BLAU3.SA",
+    "ONCO3.SA", "AALR3.SA",
+    "CCRO3.SA", "ECOR3.SA", "SBSP3.SA", "RAIL3.SA", "RENT3.SA",
+    "ELET3.SA", "ENGI11.SA", "EQTL3.SA", "EGIE3.SA", "CMIG4.SA", "CPLE6.SA",
+    "NEOE3.SA", "CPFE3.SA", "TAEE11.SA", "ENEV3.SA", "ISAE4.SA", "AURE3.SA",
+    "AESB3.SA", "LIGT3.SA",
+    "BRFS3.SA", "BEEF3.SA", "MRFG3.SA", "JBSS3.SA", "ABEV3.SA",
+    "CAML3.SA", "MDIA3.SA", "SMTO3.SA",
+    "^BVSP"
+    ]
     
     # 1. Primeiro, baixe os dados para o primeiro período
-    get_actions_data(data_inicio, data_fim)
+    get_actions_data(data_inicio, data_fim,tickers)
     
     # 2. Depois, baixe os dados para o segundo período
     get_actions_data('2015-01-01','2019-12-31')
     
     # 3. Por fim, chame a função de upload para processar todos os arquivos criados
     upload_all_data()
+
+
+    """
+     tickers=   ["QUAL3.SA", "DASA3.SA", "HAPV3.SA", "FLRY3.SA", "ODPV3.SA", "RDOR3.SA",
+    "MATD3.SA", "GNDI3.SA", "PFRM3.SA", "RADL3.SA", "HYPE3.SA", "BLAU3.SA",
+    "ONCO3.SA", "AALR3.SA",
+    # Setor de Infraestrutura
+    "CCRO3.SA", "ECOR3.SA", "SBSP3.SA", "RAIL3.SA", "RENT3.SA",
+    # Setor de Energia
+    "ELET3.SA", "ENGI11.SA", "EQTL3.SA", "EGIE3.SA", "CMIG4.SA", "CPLE6.SA",
+    "NEOE3.SA", "CPFE3.SA", "TAEE11.SA", "ENEV3.SA", "ISAE4.SA", "AURE3.SA",
+    "AESB3.SA", "LIGT3.SA",
+    # Setor de Alimentos
+    "BRFS3.SA", "BEEF3.SA", "MRFG3.SA", "JBSS3.SA", "ABEV3.SA",
+    "CAML3.SA", "MDIA3.SA", "SMTO3.SA",
+    # Ibovespa (Índice de referência)
+    "^BVSP"
+    ]
+    """
