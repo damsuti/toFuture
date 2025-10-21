@@ -193,10 +193,10 @@ if __name__ == "__main__":
     ]
     
     # 1. Primeiro, baixe os dados para o primeiro período
-    get_actions_data(data_inicio, data_fim,tickers)
+    #get_actions_data(data_inicio, data_fim,tickers)
     
     # 2. Depois, baixe os dados para o segundo período
-    get_actions_data('2015-01-01','2019-12-31')
+    get_actions_data('2024-01-02','2025-10-21')
     
     # 3. Por fim, chame a função de upload para processar todos os arquivos criados
     upload_all_data()
