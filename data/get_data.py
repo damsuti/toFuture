@@ -1,10 +1,11 @@
+from sqlalchemy import create_engine, text
+from datetime import date, timedelta
 import yfinance as yf
 import pandas as pd
 import os
-from sqlalchemy import create_engine, text
-import sqlalchemy.types 
-from datetime import date, timedelta
+import time
 import glob
+import sqlalchemy.types 
 
 # Credenciais para a conexão postgresql
 DB_USER = "user_invest"
@@ -18,109 +19,141 @@ DATA_DIR = './data/bronze'
 os.makedirs(DATA_DIR, exist_ok=True) 
 
 # Definição da lista completa de tickers por setor (Formato YFinance)
+# No início do seu script
 FULL_TICKERS_LIST = [
-    # Setor de Saúde
-    "QUAL3.SA", "DASA3.SA", "HAPV3.SA", "FLRY3.SA", "ODPV3.SA", "RDOR3.SA",
-    "MATD3.SA", "GNDI3.SA", "PFRM3.SA", "RADL3.SA", "HYPE3.SA", "BLAU3.SA",
-    "ONCO3.SA", "AALR3.SA",
-    # Setor de Infraestrutura
-    "CCRO3.SA", "ECOR3.SA", "SBSP3.SA", "RAIL3.SA", "RENT3.SA",
-    # Setor de Energia
-    "ELET3.SA", "ENGI11.SA", "EQTL3.SA", "EGIE3.SA", "CMIG4.SA", "CPLE6.SA",
-    "NEOE3.SA", "CPFE3.SA", "TAEE11.SA", "ENEV3.SA", "ISAE4.SA", "AURE3.SA",
-    "AESB3.SA", "LIGT3.SA",
-    # Setor de Alimentos
-    "BRFS3.SA", "BEEF3.SA", "MRFG3.SA", "JBSS3.SA", "ABEV3.SA",
-    "CAML3.SA", "MDIA3.SA", "SMTO3.SA",
-    # Ibovespa (Índice de referência)
-    "^BVSP"
+    # --- AÇÕES "VACAS LEITEIRAS" (Dividendos Altos/Perenes) ---
+    "BBAS3.SA", "SANB11.SA", "ITSA4.SA", # Bancos
+    "TAEE11.SA", "CPLE6.SA", "EGIE3.SA", # Energia (Transmissão é rei na aposentadoria)
+    "CSMG3.SA", "SAPR11.SA",             # Saneamento
+    "VALE3.SA", "PETR4.SA",              # Commodities (Para boost de carteira, cuidado com ciclos)
+    
+    # --- FUNDOS IMOBILIÁRIOS (O Salário Mensal) ---
+    # Logística (Galpões)
+    "HGLG11.SA", "BTLG11.SA", 
+    # Papel (Dívida imobiliária - pagam muito, protegem da inflação)
+    "KNIP11.SA", "MXRF11.SA", "CPTS11.SA",
+    # Shopping
+    "VISC11.SA", "XPML11.SA",
+    
+    # Benchmarks (Para comparar se você está ganhando do mercado)
+    "^BVSP", # Ibovespa
+    "FIX.SA" # IFIX (Índice de Fundos Imobiliários)
 ]
 
-def get_actions_data(data_inicio, data_fim, tickers:list):
+def get_actions_data(data_inicio, data_fim, tickers: list):
     """
-    Baixa os dados históricos e salva como CSV.
+    Baixa dados e salva com cabeçalho PADRONIZADO (Nomeando explicitamente).
     """
-    print(f"\nIniciando download para {len(tickers)} tickers...")
-    
+    print(f"\nIniciando download BLINDADO para {len(tickers)} ativos...")
+
     for ticker in tickers:
         try:
-            print(f"  > Tentando download para {ticker} de {data_inicio} até {data_fim}")
-            
-            # Download dos dados
-            # auto_adjust=False é importante para manter a coluna 'Adj Close'
-            df = yf.download(ticker, start=data_inicio, end=data_fim, progress=False, auto_adjust=False)
+            print(f"  > Baixando {ticker}...")
+            time.sleep(1.5)  # Semaforo
+
+            # Baixa dados brutos
+            df = yf.download(ticker, start=data_inicio, end=data_fim, progress=False, actions=True)
 
             if df.empty:
-                print(f"Aviso: Nenhum dado encontrado para o ticker '{ticker}'. O arquivo não será salvo.")
+                print(f"    X Vazio: {ticker}")
                 continue
 
-            # Renomear as colunas ANTES de salvar no CSV (7 COLUNAS DE DADOS)
-            df.rename(columns={
+            # --- CORREÇÃO DE ESTRUTURA (Multi-Index) ---
+            # Se o yfinance retornar colunas duplas (ex: Price | Ticker), achatamos para simples.
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0)
+
+            # --- MAPA DE RENOMEAÇÃO SEGURO (Dicionário) ---
+            # Só renomeia se encontrar a chave exata. Não depende da ordem.
+            mapa_colunas = {
                 'Open': 'Abertura',
                 'High': 'Maxima',
                 'Low': 'Minima',
                 'Close': 'Fechamento',
+                'Adj Close': 'Fechamento_Ajustado',
                 'Volume': 'Volume',
-                'Adj Close': 'Fechamento_Ajustado'
-            }, inplace=True)
+                'Dividends': 'Dividendos',
+                'Stock Splits': 'Desdobramentos'
+            }
+            df.rename(columns=mapa_colunas, inplace=True)
+
+            # Garante que colunas faltantes existam (Preenche com 0)
+            # Ex: Se não teve Splits no periodo, o Yahoo pode nem mandar a coluna.
+            colunas_finais_desejadas = [
+                'Abertura', 'Maxima', 'Minima', 'Fechamento', 
+                'Fechamento_Ajustado', 'Volume', 'Dividendos', 'Desdobramentos'
+            ]
             
-            print(f"  > Dados para '{ticker}' baixados com sucesso! Última data: {df.index.max().strftime('%Y-%m-%d')}")
-            
-            # Lógica para nomear o arquivo
-            name = ticker.replace("^","").replace(".SA","")
+            for col in colunas_finais_desejadas:
+                if col not in df.columns:
+                    df[col] = 0.0
+
+            # ---ORDENAÇÃO FINAL ---
+            # Força a ordem das colunas para o CSV ser sempre igual
+            df = df[colunas_finais_desejadas]
+
+            # Salva o arquivo
+            name = ticker.replace("^", "").replace(".SA", "")
             yearStart = data_inicio[2:4]
-            yearEnd = date.today().strftime('%y-%m-%d') 
-            
+            yearEnd = date.today().strftime('%y-%m-%d')
             nome_arquivo = f'data{yearStart}To{yearEnd}_{name}.csv'
             caminho_arquivo = os.path.join(DATA_DIR, nome_arquivo)
-    
-            df.to_csv(caminho_arquivo)
-        
+            
+            # ATENÇÃO: Salvamos COM cabeçalho (header=True) para leitura fácil depois
+            df.to_csv(caminho_arquivo, header=True)
+            print(f"    -> Sucesso: {ticker}")
+
         except Exception as e:
-            print(f"Erro ao baixar dados para o ticker '{ticker}': {e}")
+            print(f"Erro em {ticker}: {e}")
             continue
 
-def process_csv_to_db(caminho_arquivo:str) -> pd.DataFrame:
+def process_csv_to_db(caminho_arquivo: str) -> pd.DataFrame:
     """
-    Processa um arquivo CSV, extrai o ticker, trata as colunas e 
-    retorna um DataFrame limpo para o upload, incluindo a coluna Adj Close.
+    Lê o CSV confiando no cabeçalho (Header).
     """
     try:
-        # 1. Leitura inicial para extração do ticker.
-        header_info = pd.read_csv(caminho_arquivo, header=None, nrows=2)
-        ticker_row = header_info.iloc[1].tolist()
-        ticker = [item for item in ticker_row if item != "Ticker" and pd.notna(item)][0]
+        # Extração do Ticker do nome do arquivo (Mais seguro que ler de dentro)
+        # Ex: data23To25_PETR4.csv -> PETR4
+        nome_arquivo = os.path.basename(caminho_arquivo)
+        # Pega o que está depois do último '_' e tira o '.csv'
+        ticker_bruto = nome_arquivo.split('_')[-1].replace('.csv', '')
+        # Reaplica o sufixo .SA se necessário para padronizar no banco
+        ticker = ticker_bruto + ".SA" if not ticker_bruto.endswith(".SA") and not ticker_bruto.startswith("^") else ticker_bruto
 
-        # 2. Leitura dos dados reais (pulando o cabeçalho do yfinance)
-        df = pd.read_csv(caminho_arquivo, skiprows=3, index_col=0)
+        # --- LEITURA DIRETA ---
+        # Não usamos skiprows fixo, deixamos o pandas achar o header
+        df = pd.read_csv(caminho_arquivo, index_col=0)
         
-        # *** ALINHAMENTO CORRETO: 7 colunas no CSV do YFinance ***
-        # A ordem no CSV é: Abertura, Maxima, Minima, Fechamento, Fechamento_Ajustado, Volume (se for o CSV que você enviou)
-        # Se for o padrão YF com auto_adjust=False: Open, High, Low, Close, Adj Close, Volume
-        # Vamos assumir a ordem: Open, High, Low, Close, Adj Close, Volume (traduzida)
-        
-        # O CSV do Yfinance é salvo com as colunas na ordem original (Open, High, Low, Close, Volume, Adj Close)
-        # MAS, como você renomeou e salvou, a ordem no seu CSV é:
-        df.columns = ['Abertura', 'Maxima', 'Minima', 'Fechamento', 'Volume', 'Fechamento_Ajustado']
-        
-        # 3. Preparação para o DB
+        # Normaliza nomes (caso tenha vindo 'Date' no index)
+        df.index.name = 'data'
         df.reset_index(inplace=True)
-
-        # Renomear a coluna de índice (Date) para 'data'
-        novo_nome = {df.columns[0]: 'data'}
-        df.rename(columns=novo_nome, inplace=True)
         
-        # Adiciona a coluna Ticker
+        # Verifica se as colunas essenciais estão lá
+        cols_obrigatorias = ['Abertura', 'Fechamento', 'Dividendos', 'Desdobramentos']
+        if not all(col in df.columns for col in cols_obrigatorias):
+            print(f"⚠️  Arquivo {nome_arquivo} parece incompleto ou formato antigo.")
+            return pd.DataFrame()
+
+        # Adiciona coluna Ticker
         df['ticker'] = ticker
 
-        # 4. Seleciona e reordena as colunas para o DB (Incluindo Fechamento_Ajustado)
-        df = df[['data', 'ticker', 'Abertura', 'Maxima', 'Minima', 'Fechamento', 'Fechamento_Ajustado', 'Volume']]
+        # Seleção Final (Garante ordem para o Banco de Dados)
+        df = df[[
+            'data', 'ticker', 
+            'Abertura', 'Maxima', 'Minima', 'Fechamento', 
+            'Fechamento_Ajustado', 'Volume', 
+            'Dividendos', 'Desdobramentos'
+        ]]
+        
+        # Tratamento final de Nulos
+        df['Dividendos'] = df['Dividendos'].fillna(0)
+        df['Desdobramentos'] = df['Desdobramentos'].fillna(0)
+        
         return df
         
     except Exception as e:
-        print(f"Erro ao processar ticker de {caminho_arquivo}: {e}")
+        print(f"Erro ao processar {caminho_arquivo}: {e}")
         return pd.DataFrame()
-
 
 def upload_all_data():
     # URL de Conexão com o PostgreSQL
@@ -139,8 +172,10 @@ def upload_all_data():
             "Maxima" FLOAT,
             "Minima" FLOAT,
             "Fechamento" FLOAT,
-            "Fechamento_Ajustado" FLOAT NULL, -- *** MUDANÇA CRÍTICA AQUI ***
+            "Fechamento_Ajustado" FLOAT NULL,
             "Volume" BIGINT,
+            "Dividendos" FLOAT,
+            "Desdobramentos" FLOAT,
             PRIMARY KEY (data, ticker)
         );
         """
@@ -219,7 +254,16 @@ if __name__ == "__main__":
     print(f"Arquivos CSV antigos em {DATA_DIR} removidos. Próxima coleta será limpa.")
 
     # 2. Baixe TODOS os dados
-    get_actions_data(data_inicio=data_inicio_completa, data_fim=data_fim_completa, tickers=FULL_TICKERS_LIST)
+    get_actions_data(data_inicio=data_inicio_completa, data_fim='2019-01-01', tickers=FULL_TICKERS_LIST)
     
     # 3. Chame a função de upload para processar os novos arquivos
+    upload_all_data()
+
+    get_actions_data(data_inicio='2019-01-02', data_fim='2023-01-01',tickers=FULL_TICKERS_LIST)
+
+    upload_all_data()
+
+
+    get_actions_data(data_inicio='2023-01-02', data_fim=data_fim_completa, tickers=FULL_TICKERS_LIST)
+
     upload_all_data()
