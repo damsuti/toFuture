@@ -22,22 +22,14 @@ os.makedirs(DATA_DIR, exist_ok=True)
 # No início do seu script
 FULL_TICKERS_LIST = [
     # --- AÇÕES "VACAS LEITEIRAS" (Dividendos Altos/Perenes) ---
-    "BBAS3.SA", "SANB11.SA", "ITSA4.SA", # Bancos
-    "TAEE11.SA", "CPLE6.SA", "EGIE3.SA", # Energia (Transmissão é rei na aposentadoria)
+    "BBAS3.SA", "SANB11.SA", "ITSA4.SA", "BMGB4.SA", "MOAR3.SA","SCAR3.SA", # Bancos
+    "TAEE11.SA", "CPLE6.SA", "EGIE3.SA","CEEB3.SA", # Energia (Transmissão é rei na aposentadoria)
     "CSMG3.SA", "SAPR11.SA",             # Saneamento
     "VALE3.SA", "PETR4.SA",              # Commodities (Para boost de carteira, cuidado com ciclos)
-    
-    # --- FUNDOS IMOBILIÁRIOS (O Salário Mensal) ---
-    # Logística (Galpões)
-    "HGLG11.SA", "BTLG11.SA", 
-    # Papel (Dívida imobiliária - pagam muito, protegem da inflação)
-    "KNIP11.SA", "MXRF11.SA", "CPTS11.SA",
-    # Shopping
-    "VISC11.SA", "XPML11.SA",
+    "POMO4.SA", "VULC3.SA","UNIP6.SA","GRND3.SA",
     
     # Benchmarks (Para comparar se você está ganhando do mercado)
     "^BVSP", # Ibovespa
-    "FIX.SA" # IFIX (Índice de Fundos Imobiliários)
 ]
 
 def get_actions_data(data_inicio, data_fim, tickers: list):
@@ -162,9 +154,10 @@ def upload_all_data():
     print("\nConexão com PostgreSQL estabelecida.")
 
     try:
-        # 1. Cria a tabela se ela não existir (Fechamento_Ajustado AGORA ACEITA NULL)
+        # 1. Cria a tabela diretamente (sem usar dicionário para não confundir)
         print("Verificando e criando a tabela 'companys' se necessário...")
-        create_table_sql = """
+        
+        sql_create_table = """
         CREATE TABLE IF NOT EXISTS companys (
             data DATE,
             ticker VARCHAR(20),
@@ -179,9 +172,11 @@ def upload_all_data():
             PRIMARY KEY (data, ticker)
         );
         """
+        
         with engine.connect() as connection:
-            connection.execute(text(create_table_sql))
+            connection.execute(text(sql_create_table)) # <--- AGORA CORRETO (Passando a string)
             connection.commit()
+            
         print("Tabela 'companys' pronta para receber dados.")
 
         all_dfs = []
@@ -196,10 +191,8 @@ def upload_all_data():
                 df = process_csv_to_db(full_path)
                 
                 if not df.empty:
-                    # Contagem de tickers sem Adj Close (se toda a coluna for NaN)
                     if df['Fechamento_Ajustado'].isnull().all():
                         tickers_missing_adj_close.append(df['ticker'].iloc[0])
-
                     all_dfs.append(df)
                 else:
                     print(f"Arquivo {filename} ignorado devido a erro de processamento.")
@@ -211,7 +204,7 @@ def upload_all_data():
         final_df = pd.concat(all_dfs, ignore_index=True)
         print(f"\nTodos os dados processados. Total de {len(final_df)} linhas.")
 
-        # 3. Upload para o Banco de Dados (agora com 7 colunas de dados)
+        # 3. Upload para o Banco de Dados
         print(f"Fazendo upload para a tabela '{TABLE_NAME}'...")
         
         final_df.to_sql(
@@ -223,20 +216,20 @@ def upload_all_data():
             dtype={
                 'data': sqlalchemy.types.Date,
                 'ticker': sqlalchemy.types.VARCHAR(20),
-                'Fechamento_Ajustado': sqlalchemy.types.Float  # Tipo agora deve ser Float
+                'Fechamento_Ajustado': sqlalchemy.types.Float,
+                'Dividendos': sqlalchemy.types.Float,      # Adicionado para segurança
+                'Desdobramentos': sqlalchemy.types.Float   # Adicionado para segurança
             }
         )
         print("Upload concluído com sucesso!")
         
-        # 4. Relatório de Tickers sem Fechamento Ajustado
         if tickers_missing_adj_close:
             print("\n--- Relatório de Coleta ---")
-            print("Tickers onde a coluna 'Fechamento_Ajustado' está completamente vazia (pode ser delistada ou erro de API):")
-            print(tickers_missing_adj_close)
+            print("Tickers sem Fechamento Ajustado:", tickers_missing_adj_close)
 
     except Exception as e:
-        print(f"ERRO CRÍTICO DURANTE O UPLOAD/CRIAÇÃO DE CHAVE: {e}")
-
+        print(f"ERRO CRÍTICO DURANTE O UPLOAD: {e}")
+        
 # --- Execução Principal do Script ---
 if __name__ == "__main__":
     
@@ -259,7 +252,7 @@ if __name__ == "__main__":
     # 3. Chame a função de upload para processar os novos arquivos
     upload_all_data()
 
-    get_actions_data(data_inicio='2019-01-02', data_fim='2023-01-01',tickers=FULL_TICKERS_LIST)
+    get_actions_data(data_inicio='2019-01-02', data_fim='2024-01-01',tickers=FULL_TICKERS_LIST)
 
     upload_all_data()
 
